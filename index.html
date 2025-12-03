@@ -14,10 +14,16 @@
     <script src="config.js"></script>
     <script src="style.js"></script>
     <style>
-        /* 防止图片被选中变蓝 */
         .no-select {
             user-select: none;
             -webkit-user-drag: none;
+        }
+        /* 简单的折叠动画辅助 */
+        .rotate-icon {
+            transform: rotate(90deg);
+        }
+        .collapsed-icon {
+            transform: rotate(0deg);
         }
     </style>
 </head>
@@ -32,7 +38,9 @@
              @wheel.prevent="handleWheelZoom"
              @mousemove="handleDragMove"
              @mouseup="handleDragEnd"
-             @mouseleave="handleDragEnd"> <button class="absolute top-4 right-6 text-white/60 hover:text-white transition text-4xl z-50 p-2 cursor-pointer">
+             @mouseleave="handleDragEnd">
+             
+            <button class="absolute top-4 right-6 text-white/60 hover:text-white transition text-4xl z-50 p-2 cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
             
@@ -81,14 +89,27 @@
                     <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
                     <input v-model="searchQuery" type="text" placeholder="搜索标题、介绍..." class="w-full bg-gray-100 text-sm pl-9 pr-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300 transition">
                 </div>
-                <div class="space-y-3 flex-1 overflow-y-auto">
+                
+                <div class="space-y-3 flex-1 overflow-y-auto select-none">
                     <div v-for="(category, catIndex) in filteredContent" :key="catIndex">
-                        <div v-if="category.pages.length > 0" class="space-y-2">
-                            <div class="flex items-center justify-between px-2">
-                                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ category.categoryName }}</h3>
-                                <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">{{ category.pages.length }}</span>
+                        <div v-if="category.pages.length > 0" class="space-y-1">
+                            
+                            <div @click="toggleCategory(category.categoryName)" 
+                                 class="flex items-center justify-between px-2 py-1.5 rounded cursor-pointer hover:bg-gray-100 transition-colors group">
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-chevron-right text-[10px] text-gray-400 mr-2 transition-transform duration-200"
+                                       :class="isCategoryOpen(category.categoryName) ? 'rotate-90' : 'rotate-0'"></i>
+                                    
+                                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider group-hover:text-gray-700 transition-colors">
+                                        {{ category.categoryName }}
+                                    </h3>
+                                </div>
+                                <span class="text-xs bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full group-hover:bg-gray-200 transition-colors">
+                                    {{ category.pages.length }}
+                                </span>
                             </div>
-                            <ul class="space-y-1">
+
+                            <ul v-show="isCategoryOpen(category.categoryName)" class="space-y-1 pl-2">
                                 <li v-for="(page, pageIndex) in category.pages" :key="pageIndex">
                                     <button 
                                         @click="selectPage(page)"
@@ -98,8 +119,10 @@
                                     </button>
                                 </li>
                             </ul>
+
                         </div>
                     </div>
+                    
                     <div v-if="filteredContent.every(c => c.pages.length === 0)" class="text-center text-gray-400 text-sm mt-10">
                         <i class="fa-solid fa-search text-4xl mb-3 opacity-20"></i>
                         <p>没有找到相关内容</p>
@@ -191,7 +214,7 @@
 </div>
 
 <script>
-    const { createApp, ref, computed, nextTick, watch } = Vue
+    const { createApp, ref, computed, nextTick, watch, reactive } = Vue
 
     // siteConfig 已从 config.js 引入
 
@@ -211,12 +234,33 @@
             const MIN_ZOOM = 0.5
             const MAX_ZOOM = 5.0
 
-            // --- 拖拽功能状态 (新增) ---
+            // --- 拖拽功能状态 ---
             const isDragging = ref(false)
             const translateX = ref(0)
             const translateY = ref(0)
             let startDragX = 0
             let startDragY = 0
+
+            // --- 折叠功能状态 (新增) ---
+            // 存储已折叠的分类名称，key为分类名，value为 true 表示已折叠
+            const collapsedCategories = ref({});
+
+            const toggleCategory = (name) => {
+                // 切换状态
+                if (collapsedCategories.value[name]) {
+                    delete collapsedCategories.value[name]; // 删除key表示展开
+                } else {
+                    collapsedCategories.value[name] = true; // 设为true表示折叠
+                }
+            };
+
+            const isCategoryOpen = (name) => {
+                // 1. 如果正在搜索，强制展开所有 (方便查看搜索结果)
+                if (searchQuery.value) return true;
+                
+                // 2. 如果 collapsedCategories 中没有这个key，说明默认展开
+                return !collapsedCategories.value[name];
+            };
 
             // 搜索功能
             const filteredContent = computed(() => {
@@ -266,23 +310,17 @@
                 zoomScale.value = Math.round(newScale * 100) / 100;
             }
 
-            // --- 拖拽逻辑 (新增) ---
+            // --- 拖拽逻辑 ---
             const handleDragStart = (event) => {
-                // 只有左键点击才触发
                 if (event.button !== 0) return;
-                
                 isDragging.value = true;
-                // 记录点击时的初始鼠标位置 - 当前已偏移的距离
                 startDragX = event.clientX - translateX.value;
                 startDragY = event.clientY - translateY.value;
             }
 
             const handleDragMove = (event) => {
                 if (!isDragging.value) return;
-                
-                event.preventDefault(); // 防止默认拖拽行为
-                
-                // 计算新的偏移量
+                event.preventDefault();
                 translateX.value = event.clientX - startDragX;
                 translateY.value = event.clientY - startDragY;
             }
@@ -294,7 +332,6 @@
             // 图片放大功能 - 打开
             const openZoom = (src) => {
                 zoomedImageSrc.value = src;
-                // 重置所有状态
                 zoomScale.value = 1;
                 translateX.value = 0;
                 translateY.value = 0;
@@ -314,7 +351,9 @@
             // 页面选择功能
             const selectPage = (page) => {
                 currentPage.value = page;
-                isMobileMenuOpen.value = false;
+                if (window.innerWidth < 768) { // 只在移动端关闭菜单
+                    isMobileMenuOpen.value = false;
+                }
                 document.querySelector('main').scrollTop = 0;
             };
 
@@ -348,12 +387,15 @@
                 searchQuery,
                 filteredContent,
                 navLinks,
-                // 导出缩放和拖拽状态
+                // 缩放拖拽
                 zoomScale,
                 translateX,
                 translateY,
                 isDragging,
-                // 导出方法
+                // 折叠功能 (新增)
+                toggleCategory,
+                isCategoryOpen,
+                // 方法
                 handleWheelZoom,
                 handleDragStart,
                 handleDragMove,
