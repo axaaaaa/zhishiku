@@ -13,23 +13,49 @@
     <script src="content.js"></script>
     <script src="config.js"></script>
     <script src="style.js"></script>
+    <style>
+        /* 防止图片被选中变蓝 */
+        .no-select {
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden">
 
 <div id="app" class="flex flex-col h-full relative">
 
     <transition name="fade">
-        <div v-if="zoomedImageSrc" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" @click="closeZoom">
-            <button class="absolute top-4 right-6 text-white/60 hover:text-white transition text-4xl z-50 p-2">
+        <div v-if="zoomedImageSrc" 
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm overflow-hidden" 
+             @click="closeZoom"
+             @wheel.prevent="handleWheelZoom"
+             @mousemove="handleDragMove"
+             @mouseup="handleDragEnd"
+             @mouseleave="handleDragEnd"> <button class="absolute top-4 right-6 text-white/60 hover:text-white transition text-4xl z-50 p-2 cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
-            <div class="relative max-w-full max-h-full transition-transform duration-300 transform scale-95" :class="{'scale-100': zoomedImageSrc}">
-                 <img :src="zoomedImageSrc" class="max-w-full max-h-[90vh] object-contain rounded shadow-2xl cursor-zoom-out" @click.stop="closeZoom" alt="Zoomed Content">
+            
+            <div class="relative w-full h-full flex items-center justify-center p-4" @click.stop>
+                <img :src="zoomedImageSrc" 
+                     :style="{ transform: `translate(${translateX}px, ${translateY}px) scale(${zoomScale})` }"
+                     :class="[
+                        'max-w-full max-h-[90vh] object-contain rounded shadow-2xl no-select',
+                        isDragging ? 'cursor-grabbing' : 'cursor-grab transition-transform duration-150 ease-out'
+                     ]"
+                     @mousedown.prevent="handleDragStart"
+                     alt="Zoomed Content"
+                     title="滚轮缩放，按住拖拽">
+            </div>
+            
+            <div class="absolute bottom-10 left-0 right-0 text-center text-white/50 text-sm pointer-events-none select-none">
+                <div class="space-x-4">
+                    <span><i class="fa-solid fa-arrows-up-down mr-1"></i> 滚轮缩放 ({{ Math.round(zoomScale * 100) }}%)</span>
+                    <span><i class="fa-solid fa-hand mr-1"></i> 按住拖动</span>
+                </div>
             </div>
         </div>
     </transition>
-
-    <!-- 移动端菜单已移除遮罩层 -->
 
     <header class="bg-white border-b border-gray-200 h-16 flex items-center px-4 md:px-6 flex-shrink-0 z-30 relative justify-between md:justify-start">
         <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="md:hidden text-gray-600 hover:text-indigo-600 focus:outline-none mr-4">
@@ -100,7 +126,7 @@
                             <template v-if="card.image">
                                 <img :src="card.image" 
                                      @click="openZoom(card.image)"
-                                     class="w-full h-full object-cover relative z-0" 
+                                     class="w-full h-full object-cover relative z-0 hover:opacity-95 transition-opacity" 
                                      alt="Infographic">
                             </template>
                             <div v-else class="text-center text-gray-400 p-6">
@@ -178,6 +204,19 @@
             const zoomedImageSrc = ref(null)
             const isMobileMenuOpen = ref(false)
             const searchQuery = ref("")
+            
+            // --- 缩放功能状态 ---
+            const zoomScale = ref(1)
+            const ZOOM_SPEED = 0.1
+            const MIN_ZOOM = 0.5
+            const MAX_ZOOM = 5.0
+
+            // --- 拖拽功能状态 (新增) ---
+            const isDragging = ref(false)
+            const translateX = ref(0)
+            const translateY = ref(0)
+            let startDragX = 0
+            let startDragY = 0
 
             // 搜索功能
             const filteredContent = computed(() => {
@@ -189,7 +228,7 @@
                         page.title.toLowerCase().includes(query) || 
                         page.intro.toLowerCase().includes(query) ||
                         page.cards.some(card => 
-                            card.title.toLowerCase().includes(query) ||
+                            card.title.toLowerCase().includes(query) || 
                             card.desc.toLowerCase().includes(query)
                         )
                     );
@@ -203,41 +242,89 @@
 
             // 导航功能
             const navLinks = computed(() => {
-                // 扁平化所有页面
                 const allPages = [];
                 config.value.content.forEach(cat => {
                     cat.pages.forEach(p => allPages.push(p));
                 });
 
-                // 找到当前页面的索引
                 const currentIndex = allPages.indexOf(currentPage.value);
 
-                // 返回前后页面
                 return {
                     prev: currentIndex > 0 ? allPages[currentIndex - 1] : null,
                     next: currentIndex < allPages.length - 1 ? allPages[currentIndex + 1] : null
                 };
             });
 
-            // 图片放大功能
-            const openZoom = (src) => zoomedImageSrc.value = src;
-            const closeZoom = () => zoomedImageSrc.value = null;
+            // --- 滚轮缩放逻辑 ---
+            const handleWheelZoom = (event) => {
+                const delta = event.deltaY < 0 ? ZOOM_SPEED : -ZOOM_SPEED;
+                let newScale = zoomScale.value + delta;
+                
+                if (newScale < MIN_ZOOM) newScale = MIN_ZOOM;
+                if (newScale > MAX_ZOOM) newScale = MAX_ZOOM;
+                
+                zoomScale.value = Math.round(newScale * 100) / 100;
+            }
+
+            // --- 拖拽逻辑 (新增) ---
+            const handleDragStart = (event) => {
+                // 只有左键点击才触发
+                if (event.button !== 0) return;
+                
+                isDragging.value = true;
+                // 记录点击时的初始鼠标位置 - 当前已偏移的距离
+                startDragX = event.clientX - translateX.value;
+                startDragY = event.clientY - translateY.value;
+            }
+
+            const handleDragMove = (event) => {
+                if (!isDragging.value) return;
+                
+                event.preventDefault(); // 防止默认拖拽行为
+                
+                // 计算新的偏移量
+                translateX.value = event.clientX - startDragX;
+                translateY.value = event.clientY - startDragY;
+            }
+
+            const handleDragEnd = () => {
+                isDragging.value = false;
+            }
+
+            // 图片放大功能 - 打开
+            const openZoom = (src) => {
+                zoomedImageSrc.value = src;
+                // 重置所有状态
+                zoomScale.value = 1;
+                translateX.value = 0;
+                translateY.value = 0;
+            };
+            
+            // 图片放大功能 - 关闭
+            const closeZoom = () => {
+                zoomedImageSrc.value = null;
+                isDragging.value = false;
+                setTimeout(() => { 
+                    zoomScale.value = 1; 
+                    translateX.value = 0;
+                    translateY.value = 0;
+                }, 200);
+            };
             
             // 页面选择功能
             const selectPage = (page) => {
                 currentPage.value = page;
                 isMobileMenuOpen.value = false;
+                document.querySelector('main').scrollTop = 0;
             };
 
             // 代码复制功能
             const copyCode = (code, event) => {
                 navigator.clipboard.writeText(code).then(() => {
-                    // 按钮反馈
                     const btn = event.currentTarget;
                     const originalHTML = btn.innerHTML;
                     btn.innerHTML = '<i class="fa-solid fa-check text-green-400"></i>';
                     
-                    // 恢复原始状态
                     setTimeout(() => {
                         btn.innerHTML = originalHTML;
                     }, 2000);
@@ -261,6 +348,16 @@
                 searchQuery,
                 filteredContent,
                 navLinks,
+                // 导出缩放和拖拽状态
+                zoomScale,
+                translateX,
+                translateY,
+                isDragging,
+                // 导出方法
+                handleWheelZoom,
+                handleDragStart,
+                handleDragMove,
+                handleDragEnd,
                 openZoom,
                 closeZoom,
                 selectPage,
