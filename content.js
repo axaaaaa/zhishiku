@@ -555,6 +555,19 @@ const siteContent = [
                 ]
             },
             {
+                title: "金钱心理学",
+                intro: "金钱心理学",
+                cards: [
+                    {
+                        title: "金钱心理学",
+                        desc: "金钱心理学",
+                        image: "金融知识美漫/金钱心理学.png", 
+                        code: "",
+                        lang: ""
+                    }
+                ]
+            },
+            {
                 title: "随机漫步的傻瓜",
                 intro: "概率论与投资的关系。",
                 cards: [
