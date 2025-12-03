@@ -529,6 +529,32 @@ const siteContent = [
                 ]
             },
             {
+                title: "彼得·林奇的成功投资",
+                intro: "彼得·林奇的成功投资",
+                cards: [
+                    {
+                        title: "彼得·林奇的成功投资",
+                        desc: "彼得·林奇的成功投资",
+                        image: "金融知识美漫/彼得·林奇的成功投资.png", 
+                        code: "",
+                        lang: ""
+                    }
+                ]
+            },
+            {
+                title: "证券分析",
+                intro: "证券分析",
+                cards: [
+                    {
+                        title: "证券分析",
+                        desc: "证券分析",
+                        image: "金融知识美漫/证券分析.png", 
+                        code: "",
+                        lang: ""
+                    }
+                ]
+            },
+            {
                 title: "随机漫步的傻瓜",
                 intro: "概率论与投资的关系。",
                 cards: [
