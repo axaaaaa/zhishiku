@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Linux Git + GitHub 终极复现笔记</title>
+  <style>
+    :root {
+      /* 亮色系：清爽、专业 */
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --text: #374151;
+      --title: #111827;
+      --muted: #6b7280;
+      
+      /* 重点色 */
+      --primary: #2563eb;    /* 链接/重点 */
+      --primary-bg: #eff6ff;
+      --var-bg: #fef3c7;     /* 变量高亮背景（黄色） */
+      --var-text: #b45309;   /* 变量文字颜色 */
+      
+      /* 代码块 */
+      --code-bg: #1e293b;
+      --code-text: #e2e8f0;
+      
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --border: #e5e7eb;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+
+    .wrap { max-width: 900px; margin: 0 auto; padding: 30px 20px; }
+
+    /* 头部 */
+    header {
+      text-align: center; margin-bottom: 40px;
+    }
+    h1 { margin: 0; color: var(--title); font-size: 28px; letter-spacing: -0.5px; }
+    .subtitle { color: var(--muted); margin-top: 10px; font-size: 15px; }
+    
+    /* 核心提示 */
+    .note-box {
+      background: #fff; border-left: 4px solid var(--primary);
+      padding: 15px 20px; border-radius: 8px;
+      box-shadow: var(--shadow); margin-bottom: 30px;
+      display: flex; gap: 15px; align-items: start;
+    }
+    .note-icon { font-size: 24px; line-height: 1; }
+    .note-content h4 { margin: 0 0 5px; color: var(--title); }
+    .note-content p { margin: 0; font-size: 14px; color: var(--muted); }
+    
+    /* 变量高亮样式 - 核心修改 */
+    .var {
+      background: var(--var-bg); color: var(--var-text);
+      padding: 0 4px; border-radius: 4px; border: 1px dashed var(--var-text);
+      font-weight: bold; font-family: monospace;
+    }
+
+    /* 章节卡片 */
+    section {
+      background: var(--card-bg); border-radius: 16px;
+      padding: 30px; margin-bottom: 24px;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+    }
+
+    h2 { 
+      margin: 0 0 20px; font-size: 20px; color: var(--title);
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 2px solid var(--bg); padding-bottom: 12px;
+    }
+    
+    /* 步骤圆圈 */
+    .step-badge {
+      background: var(--primary); color: #fff;
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: bold; flex-shrink: 0;
+    }
+
+    h3 { margin: 25px 0 10px; font-size: 16px; font-weight: 600; color: #1f2937; }
+
+    /* 代码块增强 */
+    .code-wrapper {
+      position: relative; margin: 10px 0 20px;
+    }
+    pre {
+      background: var(--code-bg); color: var(--code-text);
+      padding: 15px; border-radius: 10px;
+      overflow-x: auto; font-family: Consolas, monospace; font-size: 14px;
+      margin: 0; border: 1px solid #334155;
+    }
+    code { font-family: inherit; }
+    
+    /* 复制按钮 */
+    .copy-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; padding: 4px 8px; font-size: 12px; border-radius: 4px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.2); }
+    .copy-btn.copied { background: #10b981; border-color: #10b981; }
+
+    /* 注释/解释文字 */
+    .explain { font-size: 14px; color: var(--muted); margin-bottom: 5px; }
+    .explain b { color: var(--text); }
+
+    /* 常见错误表格 */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+    th { text-align: left; background: #f9fafb; padding: 10px; border-bottom: 2px solid #e5e7eb; color: var(--muted); }
+    td { padding: 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    code.inline { background: #f3f4f6; padding: 2px 5px; border-radius: 4px; color: #c026d3; }
+
+    /* 导航 */
+    .nav-pills {
+      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 30px;
+    }
+    .nav-pills a {
+      text-decoration: none; color: var(--muted); background: #fff;
+      padding: 8px 16px; border-radius: 99px; font-size: 14px;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .nav-pills a:hover { color: var(--primary); border-color: var(--primary); transform: translateY(-2px); }
+
+    footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 50px; }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <header>
+    <h1>🐧 Linux Git + SSH 终极复现笔记</h1>
+    <div class="subtitle">包含环境检查、变量替换提示与容错处理</div>
+  </header>
+
+  <div class="note-box">
+    <div class="note-icon">💡</div>
+    <div class="note-content">
+      <h4>如何使用这份笔记？</h4>
+      <p>看到黄色虚线框 <span class="var">内容</span> 时，请务必替换为你自己的信息！<br>如果不替换直接运行，肯定会报错。</p>
+    </div>
+  </div>
+
+  <div class="nav-pills">
+    <a href="#prep">0. 准备工作</a>
+    <a href="#ssh">1. SSH 配置</a>
+    <a href="#setup">2. 仓库关联</a>
+    <a href="#daily">3. 日常操作</a>
+    <a href="#fix">4. 救命锦囊</a>
+  </div>
+
+  <section id="prep">
+    <h2><div class="step-badge">0</div> 准备工作 (Pre-check)</h2>
+    
+    <p class="explain">先确认你的 Linux 里面装了 git 没有：</p>
+    <div class="code-wrapper">
+      <pre><code>git --version</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+    
+    <p class="explain">如果提示 <i>command not found</i>，请运行安装：</p>
+    <div class="code-wrapper">
+      <pre><code>sudo apt update
+sudo apt install git -y</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+  </section>
+
+  <section id="ssh">
+    <h2><div class="step-badge">1</div> 生成并部署 SSH Key (核心)</h2>
+    
+    <h3>1.1 配置用户信息（全局）</h3>
+    <div class="code-wrapper">
+      <pre><code>git config --global user.name "<span class="var">你的用户名</span>"
+git config --global user.email "<span class="var">你的GitHub注册邮箱</span>"</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+
+    <h3>1.2 生成密钥对</h3>
+    <p class="explain"><b>注意：</b>运行后会让你输入保存路径和密码，<b>连续按 3 次回车</b> 即可（使用默认路径、不设密码）。</p>
+    <div class="code-wrapper">
+      <pre><code>ssh-keygen -t ed25519 -C "<span class="var">你的GitHub注册邮箱</span>"</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+
+    <h3>1.3 查看并复制公钥</h3>
+    <p class="explain">这个命令会把公钥打印出来，鼠标选中复制以 <code>ssh-ed25519</code> 开头的所有内容。</p>
+    <div class="code-wrapper">
+      <pre><code>cat ~/.ssh/id_ed25519.pub</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+    
+    <div style="background: #fffbe6; padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 14px; color: #b45309;">
+      👉 <b>去哪里粘贴？</b><br>
+      GitHub 网页 -> 头像 -> Settings -> SSH and GPG keys -> <b>New SSH key</b>。<br>
+      Title 随便填（如 "My Linux PC"），Key 粘贴进去。
+    </div>
+
+    <h3>1.4 验证连接</h3>
+    <div class="code-wrapper">
+      <pre><code>ssh -T git@github.com</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+    <p class="explain">首次连接会问 `Are you sure...`，必须输入 <code class="inline">yes</code> 并回车！<br>看到 <span style="color:#10b981">Hi xxx! You've successfully authenticated</span> 才算成功。</p>
+  </section>
+
+  <section id="setup">
+    <h2><div class="step-badge">2</div> 仓库下载与关联</h2>
+
+    <h3>情况 A：你还没有下载代码（推荐）</h3>
+    <div class="code-wrapper">
+      <pre><code>cd ~/Desktop
+# 注意：这里直接用 SSH 地址，一步到位，不用后面再改
+git clone git@github.com:<span class="var">用户名</span>/<span class="var">仓库名</span>.git</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+
+    <h3>情况 B：代码已经在本地，但是是 HTTPS 的</h3>
+    <p class="explain">需要修改远程地址，否则推不上去。</p>
+    <div class="code-wrapper">
+      <pre><code># 进入你的项目文件夹
+cd <span class="var">你的项目文件夹路径</span>
+
+# 修改 origin 地址
+git remote set-url origin git@github.com:<span class="var">用户名</span>/<span class="var">仓库名</span>.git
+
+# 验证一下改过来没
+git remote -v</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+  </section>
+
+  <section id="daily">
+    <h2><div class="step-badge">3</div> 日常三部曲 (Daily Workflow)</h2>
+    <p class="explain">以后每天写代码，严格按照这个顺序，<b>绝对不会</b>出错。</p>
+    
+    <h3>步骤 1：回家先拉取 (Pull)</h3>
+    <div class="code-wrapper">
+      <pre><code>git pull</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+
+    <h3>步骤 2：写代码... (Coding)</h3>
+    <p class="explain">这里是你自己修改文件、写代码的时间。</p>
+
+    <h3>步骤 3：提交三连 (Push)</h3>
+    <div class="code-wrapper">
+      <pre><code># 1. 看看改了啥（可选，但推荐）
+git status
+
+# 2. 添加所有修改到暂存区
+git add .
+
+# 3. 盖章（提交到本地库）
+git commit -m "<span class="var">写一句这一版改了什么</span>"
+
+# 4. 发送到 GitHub
+git push</code></pre>
+      <button class="copy-btn">Copy</button>
+    </div>
+  </section>
+
+  <section id="fix">
+    <h2><div class="step-badge">4</div> 救命锦囊 (Troubleshooting)</h2>
+    <table>
+      <thead>
+        <tr><th>报错关键词</th><th>说人话（原因）</th><th>怎么办</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code style="color:red">Permission denied (publickey)</code></td>
+          <td>没钥匙，或者钥匙没给 GitHub。</td>
+          <td>重做 <b>1.2</b> 和 <b>1.3</b> 步，确保公钥粘贴对了。</td>
+        </tr>
+        <tr>
+          <td><code style="color:red">fatal: not a git repository</code></td>
+          <td>你没进文件夹。</td>
+          <td>先 <code>cd <span class="var">文件夹名</span></code> 再执行命令。</td>
+        </tr>
+        <tr>
+          <td><code style="color:red">Updates were rejected</code></td>
+          <td>GitHub 上有新代码你没拉下来。</td>
+          <td>先运行 <code>git pull</code>，解决完冲突再推。</td>
+        </tr>
+        <tr>
+          <td><code style="color:red">Support for password... removed</code></td>
+          <td>你在用 HTTPS 密码方式推，被禁用了。</td>
+          <td>按 <b>情况 B</b> 改成 SSH 地址。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    <p>建议保存文件名为：<b>git_cheatsheet.html</b></p>
+  </footer>
+</div>
+
+<script>
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // 找到按钮前一个兄弟元素中的 code 标签
+      const code = btn.previousElementSibling.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  });
+</script>
+</body>
+</html>
