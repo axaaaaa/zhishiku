@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linux 命令速查全典 (Pro版)</title>
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --primary: #2563eb;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --code-bg: #0f172a;
+            --code-text: #e2e8f0;
+        }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text-main); }
+        
+        /* 顶部悬浮搜索 */
+        header {
+            position: sticky; top: 0; z-index: 99;
+            background: rgba(255,255,255,0.9); backdrop-filter: blur(8px);
+            padding: 20px; border-bottom: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .search-container { max-width: 600px; margin: 0 auto; position: relative; }
+        input {
+            width: 100%; padding: 14px 20px 14px 45px;
+            border-radius: 50px; border: 2px solid var(--border);
+            font-size: 16px; outline: none; transition: all 0.3s;
+            background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37,99,235,0.1); }
+        .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-sub); }
+
+        /* 内容区 */
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; padding-bottom: 60px;}
+        
+        /* 分类标题 */
+        .category-header {
+            margin: 40px 0 15px; font-size: 1.2rem; font-weight: 700; color: var(--text-main);
+            display: flex; align-items: center; border-left: 4px solid var(--primary); padding-left: 10px;
+        }
+
+        /* 卡片网格 */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg); border-radius: 12px; padding: 18px;
+            border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex; flex-direction: column;
+        }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08); border-color: #cbd5e1; }
+        
+        .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .cmd { font-family: monospace; font-size: 1.25rem; font-weight: 700; color: #334155; }
+        .tag { font-size: 0.75rem; background: #eff6ff; color: var(--primary); padding: 2px 8px; border-radius: 4px; font-weight: 600;}
+        .desc { font-size: 0.9rem; color: var(--text-sub); margin-bottom: 12px; line-height: 1.5; flex-grow: 1; }
+        
+        /* 代码块 */
+        .code-box {
+            background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px; position: relative; margin-top: auto;
+        }
+        code { font-family: 'Consolas', monospace; font-size: 0.85rem; color: #db2777; display: block; word-break: break-all; margin-right: 30px;}
+        .note { font-size: 0.75rem; color: #94a3b8; margin-top: 6px; display: block; }
+        
+        .copy-btn {
+            position: absolute; top: 8px; right: 8px;
+            border: 1px solid var(--border); background: #fff; cursor: pointer;
+            border-radius: 4px; padding: 2px 6px; font-size: 0.7rem; color: var(--text-sub);
+            transition: all 0.2s;
+        }
+        .copy-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        .hidden { display: none !important; }
+        .empty-tip { text-align: center; color: var(--text-sub); margin-top: 50px; display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="search-container">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="搜命令: 解压, 端口, 防火墙, sed, docker..." onkeyup="render()">
+    </div>
+</header>
+
+<div class="container" id="app">
+    </div>
+<div id="noResult" class="empty-tip">没有找到相关命令 🤔</div>
+
+<script>
+    // ==========================================
+    // 💡 在这里添加新命令！格式如下：
+    // { cat: "分类", n: "命令名", t: "标签", d: "描述", c: "代码示例", note: "代码解释", k: "搜索关键词" }
+    // ==========================================
+    const commands = [
+        // --- 1. 文件与目录 ---
+        { cat: "📂 文件操作", n: "ls", t: "常用", d: "列出目录内容", c: "ls -llh", note: "列表显示 + 显示文件大小(KB/MB)", k: "list 查看" },
+        { cat: "📂 文件操作", n: "cd", t: "基础", d: "切换目录", c: "cd -", note: "回到上一次所在的目录", k: "change directory 移动" },
+        { cat: "📂 文件操作", n: "pwd", t: "基础", d: "显示当前路径", c: "pwd", note: "打印绝对路径", k: "path" },
+        { cat: "📂 文件操作", n: "mkdir", t: "基础", d: "创建文件夹", c: "mkdir -p /a/b/c", note: "-p 递归创建多级目录", k: "make dir 新建" },
+        { cat: "📂 文件操作", n: "rm", t: "危险", d: "删除文件或目录", c: "rm -rf ./dir", note: "-r 递归, -f 强制 (慎用!)", k: "remove delete 删库" },
+        { cat: "📂 文件操作", n: "cp", t: "基础", d: "复制文件/目录", c: "cp -r source dest", note: "-r 用于复制文件夹", k: "copy 拷贝" },
+        { cat: "📂 文件操作", n: "mv", t: "基础", d: "移动或重命名", c: "mv old.txt new.txt", note: "同级目录移动即为重命名", k: "move rename" },
+        { cat: "📂 文件操作", n: "touch", t: "基础", d: "创建空文件/更新时间", c: "touch file.txt", note: "如果文件存在则更新修改时间", k: "create 新建" },
+        { cat: "📂 文件操作", n: "ln", t: "进阶", d: "创建链接(快捷方式)", c: "ln -s /path/real linkname", note: "-s 创建软链接 (Soft Link)", k: "link 快捷方式" },
+        { cat: "📂 文件操作", n: "file", t: "工具", d: "查看文件类型", c: "file archive.tar.gz", note: "查看文件真实的编码或类型", k: "type 格式" },
+        { cat: "📂 文件操作", n: "du", t: "磁盘", d: "查看文件/目录大小", c: "du -sh ./*", note: "-s 汇总, -h 人类可读", k: "disk usage 大小" },
+
+        // --- 2. 查看与处理 ---
+        { cat: "📝 文本处理", n: "cat", t: "常用", d: "查看文件内容", c: "cat file.txt", note: "一次性显示所有内容", k: "read 读" },
+        { cat: "📝 文本处理", n: "tail", t: "日志", d: "查看文件末尾", c: "tail -f app.log", note: "-f 实时监控新增内容 (常用看日志)", k: "log 监控" },
+        { cat: "📝 文本处理", n: "less", t: "常用", d: "分页查看大文件", c: "less bigfile.log", note: "按 q 退出，/ 搜索", k: "read page" },
+        { cat: "📝 文本处理", n: "grep", t: "神器", d: "文本搜索过滤", c: "grep -rn 'error' .", note: "-r 递归目录 -n 显示行号", k: "find search 查找" },
+        { cat: "📝 文本处理", n: "find", t: "神器", d: "查找文件位置", c: "find / -name '*.conf'", note: "按名称在根目录下查找", k: "search" },
+        { cat: "📝 文本处理", n: "awk", t: "高阶", d: "文本分析工具", c: "awk '{print $1}' file", note: "只打印第一列内容", k: "text process" },
+        { cat: "📝 文本处理", n: "sed", t: "高阶", d: "流编辑器/替换", c: "sed -i 's/old/new/g' file", note: "-i 直接修改文件 (慎用)", k: "replace 替换" },
+        { cat: "📝 文本处理", n: "wc", t: "统计", d: "统计行数字数", c: "wc -l file.txt", note: "-l 统计行数", k: "count word" },
+        { cat: "📝 文本处理", n: "diff", t: "对比", d: "对比文件差异", c: "diff file1 file2", note: "查看两个文件哪里不一样", k: "compare" },
+
+        // --- 3. 系统管理 ---
+        { cat: "🖥️ 系统管理", n: "top", t: "监控", d: "资源监控(CPU/内存)", c: "top", note: "按 M 内存排序, P CPU排序, q 退出", k: "cpu memory task" },
+        { cat: "🖥️ 系统管理", n: "htop", t: "推荐", d: "更好看的 Top", c: "htop", note: "需先安装，界面更人性化", k: "cpu memory" },
+        { cat: "🖥️ 系统管理", n: "ps", t: "进程", d: "查看进程快照", c: "ps aux | grep nginx", note: "查看特定进程运行状态", k: "process" },
+        { cat: "🖥️ 系统管理", n: "kill", t: "进程", d: "结束进程", c: "kill -9 <PID>", note: "-9 强制杀死进程", k: "stop end" },
+        { cat: "🖥️ 系统管理", n: "systemctl", t: "核心", d: "服务管理", c: "systemctl restart nginx", note: "start/stop/status/enable", k: "service 服务" },
+        { cat: "🖥️ 系统管理", n: "df", t: "磁盘", d: "查看磁盘空间", c: "df -h", note: "查看挂载点剩余空间", k: "disk space 容量" },
+        { cat: "🖥️ 系统管理", n: "free", t: "内存", d: "查看内存状态", c: "free -h", note: "查看 RAM 和 Swap 使用量", k: "memory ram" },
+        { cat: "🖥️ 系统管理", n: "uname", t: "信息", d: "系统内核信息", c: "uname -a", note: "查看内核版本、架构", k: "info kernel" },
+        { cat: "🖥️ 系统管理", n: "history", t: "历史", d: "查看命令历史", c: "history | grep mysql", note: "搜索以前输过的命令", k: "record" },
+        { cat: "🖥️ 系统管理", n: "reboot", t: "操作", d: "重启系统", c: "sudo reboot", note: "立即重启", k: "restart" },
+        { cat: "🖥️ 系统管理", n: "shutdown", t: "操作", d: "关机", c: "shutdown -h now", note: "立即关机", k: "poweroff" },
+
+        // --- 4. 网络操作 ---
+        { cat: "🌐 网络与传输", n: "ip", t: "现代", d: "IP地址管理", c: "ip addr", note: "查看网卡 IP 信息 (替代 ifconfig)", k: "address ifconfig" },
+        { cat: "🌐 网络与传输", n: "ping", t: "测试", d: "测试连通性", c: "ping www.baidu.com", note: "Ctrl+C 停止", k: "network test" },
+        { cat: "🌐 网络与传输", n: "curl", t: "神器", d: "HTTP 请求工具", c: "curl -I http://xxx.com", note: "-I 查看响应头，-O 下载文件", k: "http request web" },
+        { cat: "🌐 网络与传输", n: "wget", t: "下载", d: "文件下载工具", c: "wget http://url/file.zip", note: "稳定下载大文件", k: "download" },
+        { cat: "🌐 网络与传输", n: "netstat", t: "端口", d: "查看端口占用", c: "netstat -tulpn", note: "查看谁在占用端口", k: "port listen" },
+        { cat: "🌐 网络与传输", n: "ss", t: "现代", d: "Socket统计", c: "ss -ltn", note: "比 netstat 更快，查看监听端口", k: "port socket" },
+        { cat: "🌐 网络与传输", n: "ssh", t: "远程", d: "远程登录", c: "ssh user@192.168.1.1", note: "-p 指定端口", k: "remote login" },
+        { cat: "🌐 网络与传输", n: "scp", t: "传输", d: "远程文件拷贝", c: "scp local.txt user@ip:/tmp", note: "基于 SSH 的安全传输", k: "copy remote sftp" },
+        { cat: "🌐 网络与传输", n: "nslookup", t: "DNS", d: "域名解析查询", c: "nslookup google.com", note: "查询域名对应的 IP", k: "dns ip" },
+        { cat: "🌐 网络与传输", n: "lsof", t: "高阶", d: "列出打开的文件", c: "lsof -i :80", note: "查看端口 80 被哪个进程占用", k: "open file port" },
+
+        // --- 5. 权限与用户 ---
+        { cat: "🔐 权限与用户", n: "chmod", t: "权限", d: "修改文件权限", c: "chmod +x script.sh", note: "+x 添加执行权, 777 全部权限", k: "permission" },
+        { cat: "🔐 权限与用户", n: "chown", t: "权限", d: "修改所有者", c: "chown user:group file", note: "-R 递归修改目录", k: "owner" },
+        { cat: "🔐 权限与用户", n: "sudo", t: "提权", d: "管理员身份运行", c: "sudo apt update", note: "以 Root 权限执行", k: "root super" },
+        { cat: "🔐 权限与用户", n: "passwd", t: "账户", d: "修改密码", c: "passwd user", note: "不加用户则改自己密码", k: "password" },
+        { cat: "🔐 权限与用户", n: "whoami", t: "信息", d: "当前我是谁", c: "whoami", note: "显示当前登录用户名", k: "user info" },
+
+        // --- 6. 压缩与解压 ---
+        { cat: "📦 压缩与解压", n: "tar", t: "神器", d: "打包/解包", c: "tar -czvf a.tar.gz ./dir", note: "解压: tar -xzvf a.tar.gz", k: "zip unzip" },
+        { cat: "📦 压缩与解压", n: "zip", t: "常用", d: "Zip压缩", c: "zip -r archive.zip ./dir", note: "跨平台常用格式", k: "archive" },
+        { cat: "📦 压缩与解压", n: "unzip", t: "常用", d: "Zip解压", c: "unzip archive.zip", note: "解压 zip 文件", k: "extract" },
+        { cat: "📦 压缩与解压", n: "gzip", t: "基础", d: "Gzip压缩", c: "gzip file.txt", note: "生成 file.txt.gz", k: "compress" },
+
+        // --- 7. 软件安装 ---
+        { cat: "🛠️ 软件管理", n: "apt/apt-get", t: "Debian", d: "包管理器(Ubuntu)", c: "sudo apt install git", note: "install/update/remove", k: "install package" },
+        { cat: "🛠️ 软件管理", n: "yum/dnf", t: "CentOS", d: "包管理器(RedHat)", c: "sudo yum install git", note: "CentOS/Fedora 使用", k: "install package" },
+        
+        // --- 8. Docker 容器 (新增) ---
+{ cat: "🐳 Docker容器", n: "docker ps", t: "常用", d: "查看运行容器", c: "docker ps -a", note: "-a 显示所有(含已停止)", k: "container list" },
+{ cat: "🐳 Docker容器", n: "docker images", t: "常用", d: "查看本地镜像", c: "docker images", note: "列出下载好的镜像", k: "image list" },
+{ cat: "🐳 Docker容器", n: "docker run", t: "核心", d: "启动容器", c: "docker run -d -p 80:80 nginx", note: "-d 后台运行, -p 端口映射", k: "start boot" },
+{ cat: "🐳 Docker容器", n: "docker logs", t: "调试", d: "查看容器日志", c: "docker logs -f <container_id>", note: "-f 实时跟踪日志输出", k: "log debug" },
+{ cat: "🐳 Docker容器", n: "docker exec", t: "调试", d: "进入容器内部", c: "docker exec -it <container_id> /bin/bash", note: "以交互模式进入容器终端", k: "enter shell" },
+{ cat: "🐳 Docker容器", n: "docker stop", t: "操作", d: "停止容器", c: "docker stop <container_id>", note: "优雅停止服务", k: "shutdown" },
+{ cat: "🐳 Docker容器", n: "docker rm", t: "清理", d: "删除容器", c: "docker rm <container_id>", note: "删除前需先停止", k: "delete remove" },
+{ cat: "🐳 Docker容器", n: "docker rmi", t: "清理", d: "删除镜像", c: "docker rmi <image_id>", note: "删除本地镜像文件", k: "delete image" },
+{ cat: "🐳 Docker容器", n: "docker-compose", t: "编排", d: "启动项目", c: "docker-compose up -d", note: "根据 yml 文件启动一组容器", k: "compose build" },
+        
+        // --- 9. Vim 编辑器 (新增) ---
+{ cat: "📝 Vim/编辑器", n: "vim", t: "打开", d: "编辑文件", c: "vim file.txt", note: "进入后按 i 开始输入", k: "edit vi" },
+{ cat: "📝 Vim/编辑器", n: ":wq", t: "保存", d: "保存并退出", c: ":wq", note: "先按 ESC，再输 :wq 回车", k: "save quit exit" },
+{ cat: "📝 Vim/编辑器", n: ":q!", t: "退出", d: "强制退出(不保存)", c: ":q!", note: "放弃修改，强制离开", k: "quit exit force" },
+{ cat: "📝 Vim/编辑器", n: "/keyword", t: "搜索", d: "文中搜索", c: "/error", note: "输入 / 后接关键词，按 n 找下一个", k: "search find" },
+{ cat: "📝 Vim/编辑器", n: "nano", t: "新手", d: "简单编辑器", c: "nano file.txt", note: "比 Vim 简单，Ctrl+O 保存，Ctrl+X 退出", k: "edit simple" },
+
+// --- 10. 防火墙与安全 (新增) ---
+{ cat: "🛡️ 安全防御", n: "ufw status", t: "Ubuntu", d: "查看防火墙状态", c: "sudo ufw status", note: "查看哪些端口是通的", k: "firewall port" },
+{ cat: "🛡️ 安全防御", n: "ufw allow", t: "Ubuntu", d: "开放端口", c: "sudo ufw allow 80/tcp", note: "允许外部访问 80 端口", k: "open port" },
+{ cat: "🛡️ 安全防御", n: "firewall-cmd", t: "CentOS", d: "开放端口", c: "firewall-cmd --zone=public --add-port=80/tcp --permanent", note: "CentOS 7+ 使用", k: "open port" },
+{ cat: "🛡️ 安全防御", n: "ssh-keygen", t: "密钥", d: "生成SSH密钥", c: "ssh-keygen -t ed25519", note: "生成公钥私钥对，用于免密登录", k: "key rsa" },
+
+// --- 11. 进阶系统操作 (新增) ---
+{ cat: "⚙️ 进阶操作", n: "nohup", t: "后台", d: "后台运行程序", c: "nohup ./script.sh &", note: "关闭终端后程序依然运行", k: "background run" },
+{ cat: "⚙️ 进阶操作", n: "jobs", t: "后台", d: "查看后台任务", c: "jobs -l", note: "查看当前终端挂起的任务", k: "background list" },
+{ cat: "⚙️ 进阶操作", n: "lsblk", t: "磁盘", d: "查看磁盘结构", c: "lsblk", note: "树状图显示硬盘和分区，非常直观", k: "disk mount" },
+{ cat: "⚙️ 进阶操作", n: "mount", t: "磁盘", d: "挂载设备", c: "mount /dev/sdb1 /mnt/data", note: "将新硬盘挂载到目录", k: "disk usb" },
+{ cat: "⚙️ 进阶操作", n: "alias", t: "效率", d: "设置命令别名", c: "alias ll='ls -l'", note: "给长命令起个短名字", k: "shortcut" },
+{ cat: "⚙️ 进阶操作", n: "date", t: "时间", d: "查看系统时间", c: "date", note: "查看服务器当前时间", k: "time" },
+{ cat: "⚙️ 进阶操作", n: "who", t: "用户", d: "谁在线", c: "who", note: "查看当前谁登录了系统", k: "login user" },
+
+
+
+
+    ];
+
+    // 渲染函数
+    function render() {
+        const input = document.getElementById('searchInput').value.toLowerCase().trim();
+        const container = document.getElementById('app');
+        const noResult = document.getElementById('noResult');
+        
+        container.innerHTML = ''; // 清空
+        
+        // 分组数据
+        let groups = {};
+        let hasResult = false;
+
+        commands.forEach(cmd => {
+            // 搜索匹配逻辑：搜 名称、关键词、描述、分类
+            const searchText = `${cmd.n} ${cmd.k} ${cmd.d} ${cmd.cat}`.toLowerCase();
+            
+            if (input === '' || searchText.includes(input)) {
+                if (!groups[cmd.cat]) groups[cmd.cat] = [];
+                groups[cmd.cat].push(cmd);
+                hasResult = true;
+            }
+        });
+
+        if (!hasResult) {
+            noResult.style.display = 'block';
+            return;
+        } else {
+            noResult.style.display = 'none';
+        }
+
+        // 生成 HTML
+        for (const [category, cmds] of Object.entries(groups)) {
+            // 添加分类标题
+            const catHeader = document.createElement('div');
+            catHeader.className = 'category-header';
+            catHeader.textContent = category;
+            container.appendChild(catHeader);
+
+            // 添加 Grid
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+
+            cmds.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-top">
+                        <span class="cmd">${item.n}</span>
+                        <span class="tag">${item.t}</span>
+                    </div>
+                    <div class="desc">${item.d}</div>
+                    <div class="code-box">
+                        <code>${item.c}</code>
+                        <span class="note">注: ${item.note}</span>
+                        <button class="copy-btn" onclick="copyText('${item.c.replace(/'/g, "\\'")}', this)">Copy</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            container.appendChild(grid);
+        }
+    }
+
+    // 复制功能
+    function copyText(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            const original = btn.innerText;
+            btn.innerText = 'OK!';
+            btn.style.background = '#2563eb';
+            btn.style.color = '#fff';
+            setTimeout(() => {
+                btn.innerText = original;
+                btn.style.background = '';
+                btn.style.color = '';
+            }, 1000);
+        });
+    }
+
+    // 初始化
+    render();
+</script>
+
+</body>
+</html>
